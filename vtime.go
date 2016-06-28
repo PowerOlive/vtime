@@ -70,11 +70,11 @@ func (tk *Ticker) advance(now time.Time) {
 func (tk *Ticker) run() {
 	for now := range tk.u {
 		if !tk.last.IsZero() && now.Sub(tk.last) >= tk.d {
-			tk.last = now
 			// New tick
 			select {
 			case tk.c <- now:
 				// submitted tick
+				tk.last = now
 			default:
 				// no on listening, drop it on the floor
 			}
