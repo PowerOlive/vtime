@@ -69,7 +69,12 @@ func (tk *Ticker) advance(now time.Time) {
 
 func (tk *Ticker) run() {
 	for now := range tk.u {
-		if !tk.last.IsZero() && now.Sub(tk.last) >= tk.d {
+		if tk.last.IsZero() {
+			// initialize as soon as we get our first time
+			tk.last = now
+			continue
+		}
+		if now.Sub(tk.last) >= tk.d {
 			// New tick
 			select {
 			case tk.c <- now:
