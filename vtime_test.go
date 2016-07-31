@@ -14,7 +14,7 @@ func TestTicker(t *testing.T) {
 
 	readTick := func() time.Time {
 		select {
-		case t := <-tk.C:
+		case t := <-tk.C():
 			return t
 		default:
 			return time.Time{}

@@ -7,25 +7,29 @@ import (
 
 type Clock struct {
 	now     time.Time
-	tickers map[int]*Ticker
+	tickers map[int]*ticker
 	mx      sync.RWMutex
 }
 
 func NewClock(now time.Time) *Clock {
 	return &Clock{
 		now:     now,
-		tickers: make(map[int]*Ticker, 0),
+		tickers: make(map[int]*ticker, 0),
 	}
 }
 
-type Ticker struct {
+type Ticker interface {
+	C() <-chan time.Time
+	Stop()
+}
+
+type ticker struct {
 	id   int
 	cl   *Clock
 	d    time.Duration
 	last time.Time
 	u    chan time.Time
 	c    chan time.Time
-	C    <-chan time.Time
 }
 
 func (cl *Clock) Advance(t time.Time) {
@@ -46,9 +50,9 @@ func (cl *Clock) Now() time.Time {
 	return now
 }
 
-func (cl *Clock) NewTicker(d time.Duration) *Ticker {
+func (cl *Clock) NewTicker(d time.Duration) Ticker {
 	cl.mx.Lock()
-	tk := &Ticker{
+	tk := &ticker{
 		id:   len(cl.tickers),
 		d:    d,
 		cl:   cl,
@@ -56,18 +60,21 @@ func (cl *Clock) NewTicker(d time.Duration) *Ticker {
 		u:    make(chan time.Time),
 		c:    make(chan time.Time, 1),
 	}
-	tk.C = tk.c
 	cl.tickers[tk.id] = tk
 	cl.mx.Unlock()
 	go tk.run()
 	return tk
 }
 
-func (tk *Ticker) advance(now time.Time) {
+func (tk *ticker) C() <-chan time.Time {
+	return tk.c
+}
+
+func (tk *ticker) advance(now time.Time) {
 	tk.u <- now
 }
 
-func (tk *Ticker) run() {
+func (tk *ticker) run() {
 	for now := range tk.u {
 		if tk.last.IsZero() {
 			// initialize as soon as we get our first time
@@ -87,7 +94,7 @@ func (tk *Ticker) run() {
 	}
 }
 
-func (tk *Ticker) Stop() {
+func (tk *ticker) Stop() {
 	tk.cl.mx.Lock()
 	delete(tk.cl.tickers, tk.id)
 	close(tk.u)
